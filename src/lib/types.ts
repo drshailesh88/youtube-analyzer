@@ -81,6 +81,44 @@ export type ModelOption = {
 };
 
 export const AVAILABLE_MODELS: ModelOption[] = [
+  // === FREE MODELS (Test with these first!) ===
+  {
+    id: "meta-llama/llama-4-scout:free",
+    name: "Llama 4 Scout (FREE)",
+    description: "109B MoE, 512K context - great for testing",
+    costPer1kTokens: "FREE",
+  },
+  {
+    id: "meta-llama/llama-4-maverick:free",
+    name: "Llama 4 Maverick (FREE)",
+    description: "400B MoE, 256K context - powerful & free",
+    costPer1kTokens: "FREE",
+  },
+  {
+    id: "google/gemini-2.5-pro-exp-03-25:free",
+    name: "Gemini 2.5 Pro Exp (FREE)",
+    description: "Google's experimental pro model",
+    costPer1kTokens: "FREE",
+  },
+  {
+    id: "deepseek/deepseek-chat-v3-0324:free",
+    name: "DeepSeek V3 Chat (FREE)",
+    description: "Excellent for dialogue & analysis",
+    costPer1kTokens: "FREE",
+  },
+  {
+    id: "mistralai/mistral-small-3.1-24b-instruct:free",
+    name: "Mistral Small 3.1 (FREE)",
+    description: "24B model, text & image capable",
+    costPer1kTokens: "FREE",
+  },
+  {
+    id: "nvidia/llama-3.1-nemotron-nano-8b-v1:free",
+    name: "Nemotron Nano 8B (FREE)",
+    description: "Fast 8B model from NVIDIA",
+    costPer1kTokens: "FREE",
+  },
+  // === PAID MODELS (When you're ready to burn money) ===
   {
     id: "google/gemini-2.5-pro-preview-06-05",
     name: "Gemini 2.5 Pro",
