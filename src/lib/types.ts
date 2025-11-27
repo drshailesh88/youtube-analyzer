@@ -80,6 +80,32 @@ export type ModelOption = {
   costPer1kTokens: string;
 };
 
+// Database types for Firestore
+export interface SavedAnalysis {
+  id: string;
+  createdAt: Date;
+  videoId: string;
+  videoTitle: string;
+  videoChannel: string;
+  videoUrl: string;
+  modelUsed: string;
+  totalComments: number;
+  analysis: AnalysisResult;
+  tokensUsed?: {
+    input: number;
+    output: number;
+  };
+}
+
+export interface HistoryItem {
+  id: string;
+  createdAt: Date;
+  videoTitle: string;
+  videoChannel: string;
+  modelUsed: string;
+  totalComments: number;
+}
+
 export const AVAILABLE_MODELS: ModelOption[] = [
   // === FREE MODELS (Default) ===
   {

@@ -10,6 +10,7 @@ import {
 } from "@/lib/types";
 import LoadingState from "@/components/LoadingState";
 import ResultsDisplay from "@/components/ResultsDisplay";
+import HistoryPanel from "@/components/HistoryPanel";
 
 type Stage = "idle" | "scraping" | "analyzing" | "complete" | "error";
 
@@ -22,6 +23,8 @@ export default function Home() {
   const [modelUsed, setModelUsed] = useState("");
   const [tokensUsed, setTokensUsed] = useState<{ input: number; output: number } | undefined>();
   const [showModelDropdown, setShowModelDropdown] = useState(false);
+  const [currentAnalysisId, setCurrentAnalysisId] = useState<string | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const handleAnalyze = async () => {
     if (!videoUrl.trim()) {
@@ -74,9 +77,85 @@ export default function Home() {
       setModelUsed(analyzeData.model_used);
       setTokensUsed(analyzeData.tokens_used);
       setStage("complete");
+
+      // Save to Firebase
+      await saveToHistory(
+        scrapeData.videoInfo,
+        analyzeData.analysis,
+        analyzeData.model_used,
+        scrapeData.totalComments,
+        analyzeData.tokens_used
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
       setStage("error");
+    }
+  };
+
+  const saveToHistory = async (
+    videoInfo: { title: string; channel: string; url: string },
+    analysis: AnalysisResult,
+    model: string,
+    totalComments: number,
+    tokens?: { input: number; output: number }
+  ) => {
+    try {
+      // Extract video ID from URL
+      const videoId = extractVideoId(videoInfo.url);
+
+      const response = await fetch('/api/history/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoId,
+          videoTitle: videoInfo.title,
+          videoChannel: videoInfo.channel,
+          videoUrl: videoInfo.url,
+          modelUsed: model,
+          totalComments,
+          analysis,
+          tokensUsed: tokens,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setCurrentAnalysisId(data.id);
+      }
+    } catch (error) {
+      console.error('Failed to save to history:', error);
+      // Don't show error to user - saving to history is optional
+    }
+  };
+
+  const extractVideoId = (url: string): string => {
+    const match = url.match(/[?&]v=([^&]+)/);
+    return match ? match[1] : url;
+  };
+
+  const handleLoadFromHistory = async (id: string) => {
+    try {
+      setLoadingHistory(true);
+      setError(null);
+
+      const response = await fetch(`/api/history/${id}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setAnalysis(data.analysis.analysis);
+        setModelUsed(data.analysis.modelUsed);
+        setTokensUsed(data.analysis.tokensUsed);
+        setVideoUrl(data.analysis.videoUrl);
+        setCurrentAnalysisId(id);
+        setStage("complete");
+      } else {
+        setError('Failed to load analysis from history');
+      }
+    } catch (error) {
+      setError('Failed to load analysis from history');
+      console.error('Error loading from history:', error);
+    } finally {
+      setLoadingHistory(false);
     }
   };
 
@@ -95,7 +174,13 @@ export default function Home() {
       <div className="fixed inset-0 bg-gradient-to-br from-[#0d0d0d] via-[#171717] to-[#0d0d0d] -z-10" />
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[#ff4d4d] opacity-[0.03] blur-[150px] rounded-full -z-10" />
 
-      <div className="max-w-6xl mx-auto px-4 py-12">
+      {/* History Panel */}
+      <HistoryPanel
+        onSelectAnalysis={handleLoadFromHistory}
+        isLoading={loadingHistory}
+      />
+
+      <div className="max-w-6xl mx-auto px-4 py-12 lg:pr-[340px]">
         {/* Header */}
         <header className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#ff4d4d10] border border-[#ff4d4d30] rounded-full mb-6">
