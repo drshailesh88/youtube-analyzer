@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { Comment, AnalysisResult, AnalyzeResponse } from "@/lib/types";
 import { ANALYSIS_SYSTEM_PROMPT, ANALYSIS_USER_PROMPT } from "@/lib/prompts";
 
-export const maxDuration = 120; // Allow up to 2 minutes for analysis
+// Vercel timeout: Hobby=10s, Pro=60s (can extend to 300s with maxDuration)
+// Set to 60s for Pro plan compatibility
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,13 +34,16 @@ export async function POST(request: NextRequest) {
     );
 
     // Format comments with metadata
-    const formattedComments = sortedComments
-      .slice(0, 1500) // Limit to avoid token limits
+    // Limit to 150 comments for Vercel compatibility (must complete within 60s)
+    const commentsToAnalyze = sortedComments.slice(0, 150);
+    const formattedComments = commentsToAnalyze
       .map(
         (c: Comment, i: number) =>
           `[${i + 1}] (${c.likes} likes) ${c.author}: ${c.text}`
       )
       .join("\n\n");
+
+    console.log(`Processing top ${commentsToAnalyze.length} comments (by likes) out of ${comments.length} total`);
 
     const userPrompt = ANALYSIS_USER_PROMPT(
       videoInfo.title,
@@ -49,31 +54,56 @@ export async function POST(request: NextRequest) {
 
     console.log(`Analyzing ${comments.length} comments with ${selectedModel}`);
 
+    // Set up abort controller with 55 second timeout (under Vercel's 60s limit)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 55000);
+
     // Call OpenRouter API
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${openrouterApiKey}`,
-        "HTTP-Referer": process.env.VERCEL_URL || "http://localhost:3000",
-        "X-Title": "YouTube Comment Analyzer",
-      },
-      body: JSON.stringify({
-        model: selectedModel,
-        messages: [
-          { role: "system", content: ANALYSIS_SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.3, // Lower temperature for more consistent analysis
-        max_tokens: 8000,
-      }),
-    });
+    let response: Response;
+    try {
+      response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openrouterApiKey}`,
+          "HTTP-Referer": process.env.VERCEL_URL || "http://localhost:3000",
+          "X-Title": "YouTube Comment Analyzer",
+        },
+        body: JSON.stringify({
+          model: selectedModel,
+          messages: [
+            { role: "system", content: ANALYSIS_SYSTEM_PROMPT },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.3, // Lower temperature for more consistent analysis
+          max_tokens: 8000,
+        }),
+        signal: controller.signal,
+      });
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        return NextResponse.json(
+          { success: false, error: "Request timed out. Try a faster model like GPT-4o Mini or reduce comments." },
+          { status: 504 }
+        );
+      }
+      throw fetchError;
+    }
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("OpenRouter error:", errorText);
+      console.error("OpenRouter error:", response.status, errorText);
+      let errorMessage = "AI analysis failed. Please try again.";
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error?.message || errorJson.message || errorText;
+      } catch {
+        errorMessage = errorText || errorMessage;
+      }
       return NextResponse.json(
-        { success: false, error: "AI analysis failed. Please try again." },
+        { success: false, error: `AI analysis failed: ${errorMessage}` },
         { status: 500 }
       );
     }
