@@ -37,22 +37,22 @@ function verifySlackRequest(req: NextRequest, body: string): boolean {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.text();
+    const payload = JSON.parse(body);
 
-    // Verify request is from Slack
+    // Handle URL verification challenge FIRST (before signature verification)
+    // Slack sends this during initial setup
+    if (payload.type === 'url_verification') {
+      return NextResponse.json({
+        challenge: payload.challenge,
+      });
+    }
+
+    // Verify request is from Slack (for all other requests)
     if (!verifySlackRequest(req, body)) {
       return NextResponse.json(
         { error: 'Invalid request signature' },
         { status: 401 }
       );
-    }
-
-    const payload = JSON.parse(body);
-
-    // Handle URL verification challenge
-    if (payload.type === 'url_verification') {
-      return NextResponse.json({
-        challenge: payload.challenge,
-      });
     }
 
     // Handle interactive messages (button clicks)
