@@ -170,7 +170,7 @@ async function processVideoAnalysis(
       body: JSON.stringify({
         comments: scrapeData.comments,
         videoInfo: scrapeData.videoInfo,
-        model: process.env.DEFAULT_MODEL || 'google/gemini-2.0-flash-exp:free',
+        model: process.env.DEFAULT_MODEL || 'amazon/nova-2-lite-v1:free',
       }),
     });
 
