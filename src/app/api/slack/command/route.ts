@@ -181,6 +181,7 @@ async function processVideoAnalysis(
     const analyzeData = await analyzeResponse.json();
 
     if (!analyzeData.success) {
+      console.error('Analysis error:', analyzeData.error);
       await updateSlackMessage(responseUrl, {
         text: '❌ Analysis failed',
         blocks: [
@@ -188,7 +189,7 @@ async function processVideoAnalysis(
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: `❌ *Analysis failed*\n\n${analyzeData.error || 'Unknown error'}`,
+              text: `❌ *Analysis failed*\n\n${analyzeData.error || 'Unknown error'}\n\nTry using the web app at https://youtube-analyzer-khaki.vercel.app`,
             },
           },
         ],
